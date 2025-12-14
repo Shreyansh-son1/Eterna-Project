@@ -7,7 +7,6 @@ import { ChevronDown, MoreVertical } from "lucide-react";
 import { RootState, toggleColumn } from "@/store";
 import usePriceFeed from "@/hooks/usePriceFeed";
 import Tabs from "./ui/Tabs";
-import ThemeToggle from "./ui/ThemeToggle";
 import TokenModal from "./ui/TokenModal";
 
 import {
@@ -74,16 +73,13 @@ export default function TokenTable() {
   return (
     <div className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-800 p-6 shadow-sm">
       {/* ---------- HEADER ---------- */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-            Live Tokens
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Real-time crypto prices and market movement
-          </p>
-        </div>
-        <ThemeToggle />
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          Live Tokens
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Real-time crypto prices and market movement
+        </p>
       </div>
 
       {/* ---------- TABS ---------- */}
