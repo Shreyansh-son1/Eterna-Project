@@ -29,15 +29,16 @@ export default function TokenModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      {/* ✅ className is REQUIRED */}
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{token.symbol}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-2 text-sm">
           <div>
-            <span className="font-medium">Price:</span> $
-            {token.price.toLocaleString()}
+            <span className="font-medium">Price:</span>{" "}
+            ${token.price.toLocaleString()}
           </div>
 
           <div>
