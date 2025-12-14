@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState, toggleColumn } from "../store";
+import { ChevronDown, MoreVertical } from "lucide-react";
 
-import usePriceFeed from "../hooks/usePriceFeed";
+import { RootState, toggleColumn } from "@/store";
+import usePriceFeed from "@/hooks/usePriceFeed";
 import Tabs from "./ui/Tabs";
+import ThemeToggle from "./ui/ThemeToggle";
 import TokenModal from "./ui/TokenModal";
 
 import {
@@ -16,181 +18,188 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/* =======================
+   TYPES
+======================= */
+type SortKey = "symbol" | "price" | "change";
+
+type Token = {
+  symbol: string;
+  price: number;
+  change: number;
+  category: string;
+};
+
 export default function TokenTable() {
-  // ----------------------------------------------
-  // FETCH PRICE FEED
-  // ----------------------------------------------
-  const { data, loading } = usePriceFeed();
+  const { data, loading }: { data: Token[]; loading: boolean } = usePriceFeed();
 
   const dispatch = useDispatch();
-  const cols = useSelector((s: RootState) => s.ui.columns);
+  const columns = useSelector((s: RootState) => s.ui.columns);
   const activeTab = useSelector((s: RootState) => s.ui.activeTab);
 
-  // ----------------------------------------------
-  // SEARCH
-  // ----------------------------------------------
-  const [search, setSearch] = useState("");
-
-  const filtered = useMemo(() => {
-    if (!data) return [];
-    return data
-      .filter((t) => t.category === activeTab)
-      .filter((t) =>
-        t.symbol.toLowerCase().includes(search.toLowerCase())
-      );
-  }, [data, activeTab, search]);
-
-  // ----------------------------------------------
-  // SORTING LOGIC
-  // ----------------------------------------------
-  const [sortKey, setSortKey] = useState("symbol");
+  const [sortKey, setSortKey] = useState<SortKey>("symbol");
   const [asc, setAsc] = useState(true);
 
-  function toggleSort(key: string) {
-    if (key === sortKey) setAsc(!asc);
-    else {
-      setSortKey(key);
-      setAsc(true);
-    }
-  }
+  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
+  /* ---------- FILTER ---------- */
+  const filtered = useMemo(() => {
+    return data.filter((t) => t.category === activeTab);
+  }, [data, activeTab]);
+
+  /* ---------- SORT ---------- */
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      if (a[sortKey] < b[sortKey]) return asc ? -1 : 1;
-      if (a[sortKey] > b[sortKey]) return asc ? 1 : -1;
+      const aVal = a[sortKey];
+      const bVal = b[sortKey];
+
+      if (aVal < bVal) return asc ? -1 : 1;
+      if (aVal > bVal) return asc ? 1 : -1;
       return 0;
     });
   }, [filtered, sortKey, asc]);
 
-  // ----------------------------------------------
-  // PAGINATION
-  // ----------------------------------------------
-  const pageSize = 5;
-  const [page, setPage] = useState(1);
-
-  const paginated = sorted.slice((page - 1) * pageSize, page * pageSize);
-  const totalPages = Math.ceil(sorted.length / pageSize);
-
-  // ----------------------------------------------
-  // MODAL HANDLING
-  // ----------------------------------------------
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedToken, setSelectedToken] = useState<any>(null);
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setAsc(!asc);
+    } else {
+      setSortKey(key);
+      setAsc(true);
+    }
+  };
 
   return (
-    <div className="border rounded-lg p-6 shadow-sm bg-white">
+    <div className="rounded-xl border bg-white dark:bg-gray-900 dark:border-gray-800 p-6 shadow-sm">
+      {/* ---------- HEADER ---------- */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            Live Tokens
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Real-time crypto prices and market movement
+          </p>
+        </div>
+        <ThemeToggle />
+      </div>
 
-      {/* TITLE */}
-      <h2 className="text-2xl font-semibold tracking-tight mb-4">
-        Live Tokens
-      </h2>
-
-      {/* TABS */}
+      {/* ---------- TABS ---------- */}
       <Tabs />
 
-      {/* SEARCH BAR */}
-      <input
-        type="text"
-        placeholder="Search tokens..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full mt-4 mb-4 px-4 py-2 border rounded-lg"
-      />
-
-      {/* COLUMN TOGGLER */}
-      <div className="flex gap-6 mb-4 text-sm">
-        {Object.keys(cols).map((k) => (
-          <label key={k} className="flex items-center gap-2 cursor-pointer">
+      {/* ---------- COLUMN TOGGLES ---------- */}
+      <div className="mt-4 flex gap-6 text-sm text-gray-700 dark:text-gray-300">
+        {(Object.keys(columns) as Array<keyof typeof columns>).map((key) => (
+          <label key={key} className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
-              checked={cols[k]}
-              onChange={() => dispatch(toggleColumn(k))}
+              checked={columns[key]}
+              onChange={() => dispatch(toggleColumn(key))}
             />
-            {k}
+            {key}
           </label>
         ))}
       </div>
 
-      {/* TABLE */}
-      <table className="w-full border-t text-sm">
-        <thead>
-          <tr className="text-gray-500">
-
-            <Th label="Symbol" sortKey="symbol" active={sortKey} asc={asc} toggle={toggleSort} />
-
-            {cols.price && (
-              <Th label="Price" sortKey="price" active={sortKey} asc={asc} toggle={toggleSort} />
-            )}
-
-            {cols.change && (
-              <Th label="24h" sortKey="change" active={sortKey} asc={asc} toggle={toggleSort} />
-            )}
-
-            {cols.actions && <th className="py-2 text-right pr-4">Actions</th>}
-          </tr>
-        </thead>
-
-        <tbody>
-
-          {/* LOADING */}
-          {loading &&
-            [...Array(4)].map((_, i) => (
-              <tr key={i} className="border-t animate-pulse">
-                <td className="py-3"><Skeleton className="h-4 w-14" /></td>
-                {cols.price && <td className="py-3"><Skeleton className="h-4 w-20" /></td>}
-                {cols.change && <td className="py-3"><Skeleton className="h-4 w-10" /></td>}
-                {cols.actions && (
-                  <td className="py-3 text-right pr-4">
-                    <Skeleton className="h-6 w-6 ml-auto" />
-                  </td>
-                )}
-              </tr>
-            ))}
-
-          {/* EMPTY */}
-          {!loading && paginated.length === 0 && (
+      {/* ---------- TABLE ---------- */}
+      <div className="mt-4 overflow-hidden rounded-lg border dark:border-gray-800">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
             <tr>
-              <td colSpan={5} className="py-8 text-center text-gray-500">
-                No tokens found.
-              </td>
+              <Th
+                label="Symbol"
+                sortKey="symbol"
+                sortKeyState={sortKey}
+                asc={asc}
+                toggleSort={toggleSort}
+              />
+
+              {columns.price && (
+                <Th
+                  label="Price"
+                  sortKey="price"
+                  sortKeyState={sortKey}
+                  asc={asc}
+                  toggleSort={toggleSort}
+                />
+              )}
+
+              {columns.change && (
+                <Th
+                  label="24h"
+                  sortKey="change"
+                  sortKeyState={sortKey}
+                  asc={asc}
+                  toggleSort={toggleSort}
+                />
+              )}
+
+              {columns.actions && (
+                <th className="px-4 py-3 text-right">Actions</th>
+              )}
             </tr>
-          )}
+          </thead>
 
-          {/* REAL DATA */}
-          {!loading &&
-            paginated.map((t) => (
-              <tr key={t.symbol} className="border-t hover:bg-gray-50 transition-colors">
-
-                <td className="py-3">{t.symbol}</td>
-
-                {cols.price && <td className="py-3 font-medium">${t.price.toLocaleString()}</td>}
-
-                {cols.change && (
-                  <td
-                    className={cn(
-                      "py-3 font-medium",
-                      t.change >= 0 ? "text-green-600" : "text-red-600"
-                    )}
-                  >
-                    {t.change.toFixed(2)}%
+          <tbody>
+            {loading &&
+              Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i} className="border-t dark:border-gray-800">
+                  <td className="px-4 py-4">
+                    <Skeleton className="h-4 w-20" />
                   </td>
-                )}
+                  {columns.price && (
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-24" />
+                    </td>
+                  )}
+                  {columns.change && (
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-14" />
+                    </td>
+                  )}
+                  {columns.actions && (
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-6 w-6 ml-auto" />
+                    </td>
+                  )}
+                </tr>
+              ))}
 
-                {cols.actions && (
-                  <td className="py-3 text-right pr-4">
-                    <div className="relative z-50">
+            {!loading &&
+              sorted.map((t) => (
+                <tr
+                  key={t.symbol}
+                  className="border-t dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  <td className="px-4 py-4 font-medium">{t.symbol}</td>
+
+                  {columns.price && (
+                    <td className="px-4 py-4">
+                      ${t.price.toLocaleString()}
+                    </td>
+                  )}
+
+                  {columns.change && (
+                    <td
+                      className={cn(
+                        "px-4 py-4 font-medium",
+                        t.change >= 0 ? "text-green-600" : "text-red-600"
+                      )}
+                    >
+                      {t.change.toFixed(2)}%
+                    </td>
+                  )}
+
+                  {columns.actions && (
+                    <td className="px-4 py-4 text-right">
                       <DropdownMenu>
-                        <DropdownMenuTrigger className="p-2 rounded hover:bg-gray-200">
+                        <DropdownMenuTrigger className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
                           <MoreVertical size={18} />
                         </DropdownMenuTrigger>
 
-                        <DropdownMenuContent
-                          align="end"
-                          className="z-50 bg-white border shadow-md"
-                        >
+                        <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onClick={() => {
                               setSelectedToken(t);
@@ -199,79 +208,58 @@ export default function TokenTable() {
                           >
                             View details
                           </DropdownMenuItem>
-
                           <DropdownMenuItem>Add to Watchlist</DropdownMenuItem>
                           <DropdownMenuItem>Open Chart</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </div>
-                  </td>
-                )}
-
-              </tr>
-            ))}
-        </tbody>
-      </table>
-
-      {/* PAGINATION */}
-      <div className="flex justify-between items-center mt-4">
-        <button
-          disabled={page === 1}
-          onClick={() => setPage((p) => Math.max(p - 1, 1))}
-          className="px-4 py-2 border rounded disabled:opacity-40"
-        >
-          ← Previous
-        </button>
-
-        <span>Page {page} of {totalPages || 1}</span>
-
-        <button
-          disabled={page === totalPages}
-          onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-          className="px-4 py-2 border rounded disabled:opacity-40"
-        >
-          Next →
-        </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* MODAL */}
+      {/* ---------- MODAL ---------- */}
       <TokenModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
         token={selectedToken}
+        onClose={() => setModalOpen(false)}
       />
     </div>
   );
 }
 
-/* ------------------------------------
-      SORTABLE HEADER COMPONENT
------------------------------------- */
+/* =======================
+   SORTABLE HEADER
+======================= */
 function Th({
   label,
   sortKey,
-  active,
+  sortKeyState,
   asc,
-  toggle,
+  toggleSort,
 }: {
   label: string;
-  sortKey: string;
-  active: string;
+  sortKey: SortKey;
+  sortKeyState: SortKey;
   asc: boolean;
-  toggle: (x: string) => void;
+  toggleSort: (k: SortKey) => void;
 }) {
   return (
     <th
-      onClick={() => toggle(sortKey)}
-      className="py-2 cursor-pointer select-none flex items-center gap-1"
+      onClick={() => toggleSort(sortKey)}
+      className="px-4 py-3 cursor-pointer select-none"
     >
-      {label}
-      {active === sortKey && (
-        <ChevronDown
-          size={14}
-          className={asc ? "rotate-180 transition-transform" : "transition-transform"}
-        />
-      )}
+      <div className="flex items-center gap-1">
+        {label}
+        {sortKeyState === sortKey && (
+          <ChevronDown
+            size={14}
+            className={cn("transition-transform", asc && "rotate-180")}
+          />
+        )}
+      </div>
     </th>
   );
 }
